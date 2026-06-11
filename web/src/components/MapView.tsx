@@ -432,7 +432,7 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
       </div>
 
       <div className="legend map-legend">
-        <span className="legend-title">Map of computing science</span>
+        <span className="legend-title">Map of computing science researchers</span>
         {dumpMeta && (
           <span>
             {dumpMeta.graph.nodes.toLocaleString()} researchers ·{" "}
