@@ -267,15 +267,6 @@ export function Explorer() {
             </div>
           </div>
         </div>
-        {hasQuery && (
-          <button
-            className="back-to-map"
-            title="Back to the whole-network map (clears the search)"
-            onClick={goHome}
-          >
-            ◎ whole network
-          </button>
-        )}
         <div className="search-row compact">
           <AuthorSearchBox label="First author…" accent={COLORS.endpointA} value={a} onSelect={setA} />
           <button

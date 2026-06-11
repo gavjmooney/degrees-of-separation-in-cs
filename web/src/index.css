@@ -402,20 +402,6 @@ button {
   font-size: 0.78rem;
 }
 
-.back-to-map {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 99px;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.back-to-map:hover {
-  color: var(--text);
-}
-
 .map-view {
   position: absolute;
   inset: 0;
