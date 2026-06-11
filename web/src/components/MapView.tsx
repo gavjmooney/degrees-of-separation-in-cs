@@ -443,6 +443,14 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
           inspired by the{" "}
           <a href="https://oakland.edu/enp/" target="_blank" rel="noopener noreferrer">
             Erdős Number Project
+          </a>{" "}
+          and{" "}
+          <a
+            href="https://en.wikipedia.org/wiki/Six_degrees_of_separation"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            six degrees of separation
           </a>
         </span>
         <span className="legend-dim">
