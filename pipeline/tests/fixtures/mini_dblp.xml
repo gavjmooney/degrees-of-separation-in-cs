@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE dblp SYSTEM "dblp.dtd">
+<dblp>
+<article mdate="2020-01-01" key="journals/x/AardvarkB20">
+<author>Alice Aardvark</author>
+<author>Bob Builder</author>
+<title>A <i>Fancy</i> Title on Graphs.</title>
+<journal>J. Graph Stuff</journal>
+<year>2020</year>
+</article>
+<inproceedings mdate="2021-01-01" key="conf/y/AardvarkB21">
+<author>Alice Aardvark</author>
+<author>Bob Builder</author>
+<title>Second Joint Paper.</title>
+<booktitle>CONF</booktitle>
+<year>2021</year>
+</inproceedings>
+<inproceedings mdate="2019-01-01" key="conf/y/BuilderC19">
+<author>Bob Builder</author>
+<author>Carol Chen</author>
+<title>Builders and Chens.</title>
+<booktitle>CONF</booktitle>
+<year>2019</year>
+</inproceedings>
+<article mdate="2022-01-01" key="journals/corr/abs-2201-00001" publtype="informal">
+<author>Carol Chen</author>
+<author>Dave Dijkstra</author>
+<title>A Preprint.</title>
+<journal>CoRR</journal>
+<year>2022</year>
+</article>
+<article mdate="2018-01-01" key="journals/x/DijkstraS18">
+<author>Dave Dijkstra</author>
+<author>J&uuml;rgen Schmidhuber</author>
+<title>Deep Something.</title>
+<journal>J. Graph Stuff</journal>
+<year>2018</year>
+</article>
+<article mdate="2015-01-01" key="journals/x/Wang15">
+<author>Wei Wang 0001</author>
+<title>Solo Work.</title>
+<journal>J. Graph Stuff</journal>
+<year>2015</year>
+</article>
+<article mdate="2016-01-01" key="journals/x/WangE16">
+<author>Wei Wang 0002</author>
+<author>Eve Evans</author>
+<title>Homonym Test.</title>
+<journal>J. Graph Stuff</journal>
+<year>2016</year>
+</article>
+<article mdate="2017-01-01" key="journals/x/WangE17">
+<author>Wei Wang</author>
+<author>Eve Evans</author>
+<title>Unattributed Bin Paper.</title>
+<journal>J. Graph Stuff</journal>
+<year>2017</year>
+</article>
+<phdthesis mdate="2023-01-01" key="phd/us/Evans23">
+<author>Eve Evans</author>
+<title>A Thesis.</title>
+<year>2023</year>
+</phdthesis>
+<inproceedings mdate="2024-01-01" key="conf/big/Collab24">
+<author>Big AuthorA</author>
+<author>Big AuthorB</author>
+<author>Big AuthorC</author>
+<author>Big AuthorD</author>
+<author>Big AuthorE</author>
+<author>Big AuthorF</author>
+<title>A Huge Collaboration.</title>
+<booktitle>BIGCONF</booktitle>
+<year>2024</year>
+</inproceedings>
+<proceedings mdate="2021-01-01" key="conf/y/2021">
+<editor>Edith Editor</editor>
+<title>Proceedings of CONF 2021.</title>
+<year>2021</year>
+</proceedings>
+<www mdate="2020-01-01" key="homepages/a/AliceAardvark">
+<author>Alice Aardvark</author>
+<author>A. Aardvark</author>
+<title>Home Page</title>
+</www>
+<www mdate="2020-01-01" key="homepages/w/WeiWang1">
+<author>Wei Wang 0001</author>
+<title>Home Page</title>
+</www>
+<www mdate="2020-01-01" key="homepages/w/WeiWang2">
+<author>Wei Wang 0002</author>
+<title>Home Page</title>
+</www>
+<www mdate="2020-01-01" key="homepages/w/WeiWang" publtype="disambiguation">
+<author>Wei Wang</author>
+<title>Home Page</title>
+</www>
+<www mdate="2020-01-01" key="www/org/notaperson">
+<title>Some Other Website</title>
+</www>
+</dblp>

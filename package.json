@@ -1,0 +1,16 @@
+{
+  "name": "degree-of-separation-in-cs",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Visualise the degree of separation between CS researchers using the DBLP co-authorship network",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace web",
+    "build": "npm run build --workspace server && npm run build --workspace web",
+    "test": "npm run test --workspace server"
+  }
+}

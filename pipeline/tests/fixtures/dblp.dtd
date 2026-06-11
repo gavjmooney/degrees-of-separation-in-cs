@@ -1,0 +1,8 @@
+<!-- Minimal stand-in for the real dblp.dtd: just the entity declarations the
+     fixture uses. The pipeline never validates against the DTD; it only needs
+     entity resolution. -->
+<!ENTITY uuml "&#252;">
+<!ENTITY auml "&#228;">
+<!ENTITY ouml "&#246;">
+<!ENTITY eacute "&#233;">
+<!ENTITY aacute "&#225;">
