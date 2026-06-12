@@ -870,13 +870,6 @@ button {
     border-left: none;
     z-index: 50;
   }
-
-  /* a second hide/show toggle sits on its own line under the named path */
-  .chrome-toggle.path-strip-toggle {
-    display: block;
-    width: fit-content;
-    margin-top: 0.5rem;
-  }
 }
 
 /* ---------- Collapsible chrome (mobile only) ---------- */

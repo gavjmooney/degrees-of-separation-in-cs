@@ -277,7 +277,7 @@ export function Explorer() {
             title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
             onClick={() => setChromeHidden(!chromeHidden)}
           >
-            {chromeHidden ? "⌄ search & options" : "⌃ hide"}
+            {chromeHidden ? "⌄ show" : "⌃ hide"}
           </button>
         )}
         <div className="search-row compact">
@@ -394,13 +394,6 @@ export function Explorer() {
               cautiously.
             </div>
           )}
-          <button
-            className="chrome-toggle path-strip-toggle"
-            title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
-            onClick={() => setChromeHidden(!chromeHidden)}
-          >
-            {chromeHidden ? "⌄ search & options" : "⌃ hide"}
-          </button>
         </div>
       )}
 
