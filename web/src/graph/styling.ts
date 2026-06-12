@@ -181,6 +181,7 @@ export function buildGraphAttributes(
       anchorX: p.ax,
       anchorY: p.ay,
       fixedX: p.fixedX,
+      fixedY: p.fixedY,
       type: n.onPath
         ? isEndpoint
           ? "endpointSquare"

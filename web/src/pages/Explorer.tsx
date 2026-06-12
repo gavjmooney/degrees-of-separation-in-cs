@@ -53,6 +53,7 @@ export function Explorer() {
 
   const [mode, setMode] = useState<ViewMode>("organic");
   const [spacing, setSpacing] = useState<SpacingKey>("normal");
+  const [legendOpen, setLegendOpen] = useState(false); // mobile only: legend is a toggle
   const [minWeight, setMinWeight] = useState(1);
   const [labelBudget, setLabelBudget] = useState(12);
   const options: ViewOptions = { mode, spacing: SPACING[spacing], minWeight, labelBudget };
@@ -483,7 +484,15 @@ export function Explorer() {
           />
         )}
         {hasQuery && !zoomPlan && data?.found && (
-          <div className="legend">
+          <button
+            className={`legend-toggle ${legendOpen ? "active" : ""}`}
+            onClick={() => setLegendOpen(!legendOpen)}
+          >
+            ⓘ legend
+          </button>
+        )}
+        {hasQuery && !zoomPlan && data?.found && (
+          <div className={`legend ${legendOpen ? "legend-open" : ""}`}>
             <span><i className="sq" style={{ background: COLORS.endpointA }} /> start</span>
             <span><i className="sq" style={{ background: COLORS.endpointB }} /> end</span>
             <span><i className="sq" style={{ background: COLORS.pathNode }} /> shortest path</span>

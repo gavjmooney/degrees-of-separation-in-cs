@@ -31,6 +31,8 @@ export interface SeedPos {
   ay: number;
   /** layered mode: x never moves */
   fixedX: boolean;
+  /** layered mode on portrait screens: y never moves (layers run downward) */
+  fixedY: boolean;
 }
 
 /** BFS hop counts from `start` over the subgraph's edges. */
@@ -102,6 +104,9 @@ export function seedPositions(
   mode: ViewMode,
   spacing: number,
   layer: Map<number, number>,
+  /** layered mode on portrait screens: layers run top-to-bottom and nodes
+   *  spread horizontally instead */
+  flip = false,
 ): Map<number, SeedPos> {
   const pos = new Map<number, SeedPos>();
   const span = BACKBONE_SPACING * spacing;
@@ -116,19 +121,27 @@ export function seedPositions(
   if (mode === "layered") {
     let i = 0;
     for (const n of nodes) {
-      const x = layer.get(n.id)! * span;
-      if (n.onPath) {
-        pos.set(n.id, { x: (n.pathIndex ?? 0) * span, y: 0, ax: x, ay: 0, fixedX: true });
-      } else {
+      const along = layer.get(n.id)! * span; // position along the backbone
+      const isPath = n.onPath;
+      const main = isPath ? (n.pathIndex ?? 0) * span : along;
+      let across = 0;
+      if (!isPath) {
         const side = i++ % 2 === 0 ? 1 : -1;
-        const y = side * (80 + 240 * Math.random()) * vStretch;
-        pos.set(n.id, { x, y, ax: x, ay: 0, fixedX: true });
+        across = side * (80 + 240 * Math.random()) * vStretch;
       }
+      pos.set(
+        n.id,
+        flip
+          ? { x: across, y: main, ax: 0, ay: along, fixedX: false, fixedY: true }
+          : { x: main, y: across, ax: along, ay: 0, fixedX: true, fixedY: false },
+      );
     }
     return pos;
   }
 
-  path.forEach((n, i) => pos.set(n.id, { x: i * span, y: 0, ax: i * span, ay: 0, fixedX: false }));
+  path.forEach((n, i) =>
+    pos.set(n.id, { x: i * span, y: 0, ax: i * span, ay: 0, fixedX: false, fixedY: false }),
+  );
   // anchor = strongest already-placed neighbour; process rings outward
   const byHop = [...nodes].sort((a, b) => a.hop - b.hop);
   const bestAnchor = new Map<number, { id: number; w: number }>();
@@ -155,6 +168,7 @@ export function seedPositions(
       ax: base.ax,
       ay: base.ay,
       fixedX: false,
+      fixedY: false,
     });
   }
   return pos;
@@ -168,6 +182,7 @@ interface Body {
   ay: number;
   pinned: boolean;
   fixedX: boolean;
+  fixedY: boolean;
 }
 
 export function startLayout(graph: Graph, spacing: number, onSettled?: () => void): LayoutHandle {
@@ -183,6 +198,7 @@ export function startLayout(graph: Graph, spacing: number, onSettled?: () => voi
       ay: attrs.anchorY ?? attrs.y,
       pinned: attrs.pinned === true,
       fixedX: attrs.fixedX === true,
+      fixedY: attrs.fixedY === true,
     });
   });
   const springs: { a: number; b: number; strength: number }[] = [];
@@ -251,13 +267,15 @@ export function startLayout(graph: Graph, spacing: number, onSettled?: () => voi
     for (let i = 0; i < n; i++) {
       const b = bodies[i];
       if (b.pinned) continue;
-      fx[i] += (b.ax - b.x) * ANCHOR_GRAVITY;
+      // weak gravity on the spread axis (perpendicular to the backbone),
+      // regular gravity along it
+      fx[i] += (b.ax - b.x) * (b.fixedY ? Y_GRAVITY * 0.25 : ANCHOR_GRAVITY);
       fy[i] += (b.ay - b.y) * (b.fixedX ? Y_GRAVITY * 0.25 : Y_GRAVITY);
       const f = Math.sqrt(fx[i] * fx[i] + fy[i] * fy[i]);
       if (f < 0.01) continue;
       const cap = Math.min(f, temperature);
       if (!b.fixedX) b.x += (fx[i] / f) * cap;
-      b.y += (fy[i] / f) * cap;
+      if (!b.fixedY) b.y += (fy[i] / f) * cap;
       moved += cap;
     }
     for (const b of bodies) graph.setNodeAttribute(b.key, "x", b.x);

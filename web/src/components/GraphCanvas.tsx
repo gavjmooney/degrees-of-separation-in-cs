@@ -94,7 +94,16 @@ export function GraphCanvas({
 
     const byId = new Map(nodes.map((n) => [String(n.id), n]));
     const extras = deriveAltAndLayers(nodes, edges, fromId, toId, hops);
-    const positions = seedPositions(nodes, edges, options.mode, options.spacing, extras.layer);
+    // portrait screens: layered mode runs top-to-bottom so the path fits
+    const flip = options.mode === "layered" && container.clientHeight > container.clientWidth;
+    const positions = seedPositions(
+      nodes,
+      edges,
+      options.mode,
+      options.spacing,
+      extras.layer,
+      flip,
+    );
 
     const graph = new Graph({ type: "undirected" });
     // node/edge px sizes shrink as spacing grows: the camera always fits the

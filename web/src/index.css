@@ -794,3 +794,91 @@ button {
   color: var(--text-dim);
   padding: 1rem 0;
 }
+
+/* ---------- Legend toggle (mobile only; desktop shows the legend always) ---------- */
+.legend-toggle {
+  display: none;
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 11;
+  background: rgba(16, 19, 26, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+.legend-toggle.active {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 700px) {
+  .explorer header {
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* author inputs stack instead of running off-screen */
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    order: 2; /* below the brand row */
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .swap {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+
+  .headline {
+    order: 3;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+
+  /* the hover card is meaningless on touch; node taps open the side panel */
+  .hover-card {
+    display: none;
+  }
+
+  /* the query-view legend would cover most of the graph: collapse it behind
+     the ⓘ toggle (the homepage map legend stays, just more compact) */
+  .legend:not(.map-legend) {
+    display: none;
+  }
+
+  .legend.legend-open {
+    display: flex;
+    bottom: 3.4rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .legend-toggle {
+    display: inline-block;
+  }
+
+  .map-legend {
+    font-size: 0.66rem;
+    padding: 0.45rem 0.6rem;
+    max-width: 72vw;
+  }
+
+  .toolbar {
+    gap: 0.5rem 0.8rem;
+    padding: 0.35rem 0.75rem;
+  }
+
+  .side-panel {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
