@@ -282,16 +282,6 @@ export function Explorer() {
         )}
         <div className="search-row compact">
           <AuthorSearchBox label="First author…" accent={COLORS.endpointA} value={a} onSelect={setA} />
-          <button
-            className="swap"
-            title="Swap"
-            onClick={() => {
-              setA(b);
-              setB(a);
-            }}
-          >
-            ⇄
-          </button>
           <AuthorSearchBox label="Second author…" accent={COLORS.endpointB} value={b} onSelect={setB} />
         </div>
         <div className="headline">
@@ -404,6 +394,13 @@ export function Explorer() {
               cautiously.
             </div>
           )}
+          <button
+            className="chrome-toggle path-strip-toggle"
+            title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
+            onClick={() => setChromeHidden(!chromeHidden)}
+          >
+            {chromeHidden ? "⌄ search & options" : "⌃ hide"}
+          </button>
         </div>
       )}
 
