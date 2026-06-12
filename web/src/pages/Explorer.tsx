@@ -54,6 +54,8 @@ export function Explorer() {
   const [mode, setMode] = useState<ViewMode>("organic");
   const [spacing, setSpacing] = useState<SpacingKey>("normal");
   const [legendOpen, setLegendOpen] = useState(false); // mobile only: legend is a toggle
+  // mobile only: collapse the search/controls chrome to maximise the canvas
+  const [chromeHidden, setChromeHidden] = useState(false);
   const [minWeight, setMinWeight] = useState(1);
   const [labelBudget, setLabelBudget] = useState(12);
   const options: ViewOptions = { mode, spacing: SPACING[spacing], minWeight, labelBudget };
@@ -193,6 +195,7 @@ export function Explorer() {
     setError(null);
     setZoomPlan(null);
     setHandoff(null);
+    setChromeHidden(false); // search must be visible on the welcome map
     navigate("/");
   };
 
@@ -242,7 +245,7 @@ export function Explorer() {
   }, [data, k]);
 
   return (
-    <div className="explorer">
+    <div className={`explorer ${chromeHidden ? "chrome-hidden" : ""}`}>
       <header>
         <div className="brand-block">
           <img
@@ -268,6 +271,15 @@ export function Explorer() {
             </div>
           </div>
         </div>
+        {hasQuery && (
+          <button
+            className="chrome-toggle"
+            title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
+            onClick={() => setChromeHidden(!chromeHidden)}
+          >
+            {chromeHidden ? "⌄ search & options" : "⌃ hide"}
+          </button>
+        )}
         <div className="search-row compact">
           <AuthorSearchBox label="First author…" accent={COLORS.endpointA} value={a} onSelect={setA} />
           <button

@@ -882,3 +882,38 @@ button {
     max-width: 100vw;
   }
 }
+
+/* ---------- Collapsible chrome (mobile only) ---------- */
+.chrome-toggle {
+  display: none;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chrome-toggle:active {
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  .chrome-toggle {
+    display: inline-block;
+    margin-left: auto; /* right edge of the brand row */
+    order: 1;
+  }
+
+  .brand-block {
+    order: 0;
+  }
+
+  /* collapsed: only the brand row and the path strip remain */
+  .explorer.chrome-hidden .search-row,
+  .explorer.chrome-hidden .headline,
+  .explorer.chrome-hidden .toolbar {
+    display: none;
+  }
+}
