@@ -11,7 +11,9 @@
  * query's frame to the whole network.
  */
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Meta } from "../api/types";
+import { useTheme } from "../theme";
 
 export interface ZoomTarget {
   x: number;
@@ -113,6 +115,11 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
   const pathProgRef = useRef(0);
   /** which query the overlay shows: "out" = the old one while pulling back */
   const phaseRef = useRef<"out" | "in">("in");
+  // the map render is a transparent PNG (dots only); the backdrop is painted
+  // here, so it just follows the theme — no separate light image needed
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   const [ready, setReady] = useState(false);
   const zoomDoneRef = useRef(onZoomDone);
@@ -146,13 +153,27 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
 
     // background glow centred on the network itself, so it pans/zooms along
     // (the container's flat colour matches the gradient's outer stop)
+    const light = themeRef.current === "light";
+    // path/marker colours, dot halo, and label pills, tuned per theme (the dots
+    // in the PNG are dark-bg colours but read fine on light; only these overlays
+    // and the labels need theming)
+    const pathColor = light ? "#bb8400" : PATH_COLOR;
+    const ring = light ? "#1f2530" : "#ffffff";
+    const pill = light ? "rgba(255,255,255,0.88)" : "rgba(10,12,16,0.8)";
+
     ctx2d.clearRect(0, 0, W, H);
     const gx = toX(0.5);
     const gy = toY(0.5);
     const grad = ctx2d.createRadialGradient(gx, gy, 0, gx, gy, side * 0.72);
-    grad.addColorStop(0, "#161b27");
-    grad.addColorStop(0.55, "#0d1016");
-    grad.addColorStop(1, "#08090c");
+    if (light) {
+      grad.addColorStop(0, "#fbfcfe");
+      grad.addColorStop(0.55, "#f1f4f8");
+      grad.addColorStop(1, "#e7ebf1");
+    } else {
+      grad.addColorStop(0, "#161b27");
+      grad.addColorStop(0.55, "#0d1016");
+      grad.addColorStop(1, "#08090c");
+    }
     ctx2d.fillStyle = grad;
     ctx2d.fillRect(0, 0, W, H);
     ctx2d.imageSmoothingEnabled = true;
@@ -179,7 +200,7 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
       ctx2d.lineWidth = 2.5;
       ctx2d.lineCap = "round";
       ctx2d.lineJoin = "round";
-      ctx2d.strokeStyle = PATH_COLOR;
+      ctx2d.strokeStyle = pathColor;
       ctx2d.stroke();
       // intermediate hops light up as the line reaches them
       ctx2d.textAlign = "center";
@@ -188,16 +209,16 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
         const y = toY(pts[i].y);
         ctx2d.beginPath();
         ctx2d.arc(x, y, 4.5, 0, 2 * Math.PI);
-        ctx2d.fillStyle = PATH_COLOR;
+        ctx2d.fillStyle = pathColor;
         ctx2d.fill();
         ctx2d.lineWidth = 1.5;
-        ctx2d.strokeStyle = "#ffffff";
+        ctx2d.strokeStyle = ring;
         ctx2d.stroke();
         ctx2d.font = "600 11px 'Segoe UI', system-ui, sans-serif";
-        ctx2d.fillStyle = "rgba(10,12,16,0.8)";
+        ctx2d.fillStyle = pill;
         const tw = ctx2d.measureText(pts[i].name).width;
         ctx2d.fillRect(x - tw / 2 - 3, y - 26, tw + 6, 15);
-        ctx2d.fillStyle = PATH_COLOR;
+        ctx2d.fillStyle = pathColor;
         ctx2d.fillText(pts[i].name, x, y - 15);
       }
     }
@@ -227,10 +248,10 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
         ctx2d.fillStyle = t.color;
         ctx2d.fill();
         ctx2d.lineWidth = 2.5;
-        ctx2d.strokeStyle = "#ffffff";
+        ctx2d.strokeStyle = ring;
         ctx2d.stroke();
         ctx2d.font = "700 13px 'Segoe UI', system-ui, sans-serif";
-        ctx2d.fillStyle = "rgba(10,12,16,0.8)";
+        ctx2d.fillStyle = pill;
         const tw = ctx2d.measureText(t.name).width;
         ctx2d.fillRect(x - tw / 2 - 4, y - 32, tw + 8, 18);
         ctx2d.fillStyle = t.color;
@@ -259,6 +280,13 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
     };
     animRef.current = requestAnimationFrame(tick);
   };
+
+  // repaint when the theme flips (the idle landing map isn't animating, so it
+  // wouldn't otherwise redraw with the new backdrop)
+  useEffect(() => {
+    if (imageRef.current) draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
 
   // load image once; wire resize + wheel
   useEffect(() => {
@@ -458,7 +486,7 @@ export function MapView({ dumpMeta, plan, fade, onZoomDone }: Props) {
           <a href="https://dblp.org" target="_blank" rel="noopener noreferrer">
             dblp
           </a>{" "}
-          {dumpMeta?.built} (CC0)
+          {dumpMeta?.built} (CC0) · <Link to="/about">about</Link>
         </span>
       </div>
     </div>
