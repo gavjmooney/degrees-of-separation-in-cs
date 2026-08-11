@@ -11,6 +11,12 @@ workers.
 |---|---|
 | code (`server/`, `web/`, `pipeline/`) | `git clone` from GitHub |
 | `data/artifacts/` (~7.5 GB full build: `dblp.sqlite` ≈ 3.1 GB, `coauthor.csr` ≈ 380 MB, `layout.f32`, `map.png`, `map-index.u16`, `map-meta.json`, `meta.json`) | `rsync` — never in git |
+| `STATE_DIR/records.db` (a few hundred KB) | **created and written by the server** — the leaderboard of published finds |
+
+Everything except `STATE_DIR` is read-only to the server. Keep `STATE_DIR`
+outside `ARTIFACTS_DIR` so an artifact `rsync` can never touch it, and outside
+the git clone so `git pull` can't either. It is the one thing on the box worth
+backing up.
 
 The pipeline does **not** run on the VPS; artifacts are built locally and
 shipped. RAM needs: the server holds the CSR in memory — budget ~1 GB RSS for
@@ -65,6 +71,7 @@ After=network.target
 User=dos
 WorkingDirectory=/home/dos/app/server
 Environment=ARTIFACTS_DIR=/home/dos/artifacts
+Environment=STATE_DIR=/home/dos/state
 Environment=PORT=3001
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
@@ -74,7 +81,15 @@ MemoryMax=2G
 WantedBy=multi-user.target
 ```
 
-`ARTIFACTS_DIR` must be an **absolute** path. Then:
+`ARTIFACTS_DIR` and `STATE_DIR` must be **absolute** paths. Create the state
+directory owned by the service user first — the server creates the database
+inside it on boot, but not the directory's parents' permissions:
+
+```bash
+sudo install -d -o dos -g dos /home/dos/state
+```
+
+Then:
 
 ```bash
 sudo systemctl daemon-reload
@@ -111,6 +126,34 @@ node web/scripts/e2e.mjs https://yourdomain.example data/e2e-prod
 
 (Author arguments may be needed if the served artifact set differs from the
 defaults — see the header of `web/scripts/e2e.mjs`.)
+
+## The leaderboard (`/records`)
+
+Visitors' query history is kept in their own browser; only a starred find is
+sent here, and the server recomputes the hop count itself before storing it, so
+a submission can't claim a distance it didn't earn. Submissions are rate-limited
+per IP (10/hour). What you may want to set:
+
+| variable | effect |
+|---|---|
+| `STATE_DIR` | where `records.db` lives (default `<repo>/data/state`) |
+| `RECORDS_ENABLED=false` | turns the board off completely — the API routes vanish and the page says so |
+| `RECORDS_ADMIN_TOKEN` | enables `DELETE /api/records/:id` for moderation; unset means the route 404s |
+
+```bash
+# remove a row (needs RECORDS_ADMIN_TOKEN set on the service)
+curl -X DELETE -H "x-admin-token: $TOKEN" https://yourdomain.example/api/records/12
+# or directly, which also works while the service is stopped
+sqlite3 /home/dos/state/records.db 'DELETE FROM records WHERE id = 12;'
+# back it up
+sqlite3 /home/dos/state/records.db ".backup '/home/dos/records-backup.db'"
+```
+
+After a new dblp dump the stored author ids can point at different people, so
+rows verified against the previous build are re-checked in the background once
+the server is up: those whose ids still resolve to the same names get their hop
+count recomputed, and the rest are shown as "verified against an older dblp
+build" until a human looks at them. Watch `journalctl -u dos` for the summary.
 
 ## Updating
 

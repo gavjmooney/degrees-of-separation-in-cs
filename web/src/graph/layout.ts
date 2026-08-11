@@ -1,12 +1,15 @@
 /**
  * Layouts for path-neighbourhood subgraphs (≤ ~800 nodes).
  *
- * Two modes:
+ * Modes:
  *  - "organic": path nodes pinned to a horizontal backbone, neighbours settle
  *    around the path node they connect to most strongly (force simulation).
  *  - "layered": every node's x is fixed to its BFS distance from the start
  *    endpoint (within the subgraph), the main path runs through the middle,
  *    and only y relaxes. Nodes on *some* shortest path stand out as columns.
+ *  - "polygon" / "spiral" / "grid": the main path is pinned to a fixed figure
+ *    — the vertices of a regular n-gon, an Archimedean spiral, or a snaking
+ *    grid — and the neighbourhood settles around that chain.
  *
  * The simulation is stepped from requestAnimationFrame so settling is
  * animated and the UI stays live. O(n^2) repulsion is fine at this scale.
@@ -15,7 +18,14 @@ import type Graph from "graphology";
 import type { PathEdge, PathNode } from "../api/types";
 
 export const BACKBONE_SPACING = 260;
-export type ViewMode = "organic" | "layered";
+/** Fixed layout separation (the old "spacing" control: cozy 1, airy 4). */
+export const DEFAULT_SPACING = 3;
+export type ViewMode = "organic" | "layered" | "polygon" | "spiral" | "grid";
+
+/** Modes that pin the path to a 2D figure rather than a horizontal backbone. */
+export function isShapeMode(mode: ViewMode): boolean {
+  return mode === "polygon" || mode === "spiral" || mode === "grid";
+}
 
 export interface LayoutHandle {
   /** advance the simulation; returns false once settled */
@@ -98,6 +108,65 @@ export function deriveAltAndLayers(
   return { altNodes, altEdges, layer };
 }
 
+interface Pt {
+  x: number;
+  y: number;
+}
+
+/** Straight horizontal backbone (organic mode, and the degenerate shapes). */
+function lineChain(n: number, span: number): Pt[] {
+  return Array.from({ length: n }, (_, i) => ({ x: i * span, y: 0 }));
+}
+
+/**
+ * Vertices of a regular n-gon whose side length is `span`, starting at the top
+ * and running clockwise. The chain draws n-1 of the n sides, so the figure
+ * stays open between the two endpoints.
+ */
+function polygonChain(n: number, span: number): Pt[] {
+  if (n < 3) return lineChain(n, span);
+  const radius = span / (2 * Math.sin(Math.PI / n));
+  return Array.from({ length: n }, (_, i) => {
+    const t = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return { x: radius * Math.cos(t), y: radius * Math.sin(t) };
+  });
+}
+
+/**
+ * Archimedean spiral gaining one `span` of radius per turn, stepped by equal
+ * arc length so consecutive chain links stay the same length. Starts a full
+ * turn out, where the curve is already wide enough not to look cramped.
+ */
+function spiralChain(n: number, span: number): Pt[] {
+  const growth = span / (2 * Math.PI); // radius per radian
+  const out: Pt[] = [];
+  let t = 2 * Math.PI;
+  for (let i = 0; i < n; i++) {
+    const r = growth * t;
+    out.push({ x: r * Math.cos(t), y: r * Math.sin(t) });
+    t += span / Math.max(1, r);
+  }
+  return out;
+}
+
+/** Boustrophedon grid: a landscape-ish block with alternate rows reversed. */
+function gridChain(n: number, span: number): Pt[] {
+  const cols = Math.max(2, Math.round(Math.sqrt(n * 1.4)));
+  return Array.from({ length: n }, (_, i) => {
+    const row = Math.floor(i / cols);
+    const inRow = i % cols;
+    const col = row % 2 === 0 ? inRow : cols - 1 - inRow;
+    return { x: col * span, y: row * span };
+  });
+}
+
+function chainPositions(mode: ViewMode, n: number, span: number): Pt[] {
+  if (mode === "polygon") return polygonChain(n, span);
+  if (mode === "spiral") return spiralChain(n, span);
+  if (mode === "grid") return gridChain(n, span);
+  return lineChain(n, span);
+}
+
 export function seedPositions(
   nodes: PathNode[],
   edges: PathEdge[],
@@ -139,8 +208,18 @@ export function seedPositions(
     return pos;
   }
 
-  path.forEach((n, i) =>
-    pos.set(n.id, { x: i * span, y: 0, ax: i * span, ay: 0, fixedX: false, fixedY: false }),
+  // the main chain: a horizontal backbone, or the vertices of the chosen figure
+  const chain = chainPositions(mode, path.length, span);
+  path.forEach((n, i) => {
+    const p = chain[i];
+    pos.set(n.id, { x: p.x, y: p.y, ax: p.x, ay: p.y, fixedX: false, fixedY: false });
+  });
+  // shape modes seed neighbours on the outside of the figure, so its interior
+  // isn't the first place fan-outs land
+  const shape = isShapeMode(mode);
+  const centre = chain.reduce(
+    (acc, p) => ({ x: acc.x + p.x / chain.length, y: acc.y + p.y / chain.length }),
+    { x: 0, y: 0 },
   );
   // anchor = strongest already-placed neighbour; process rings outward
   const byHop = [...nodes].sort((a, b) => a.hop - b.hop);
@@ -159,11 +238,17 @@ export function seedPositions(
     if (pos.has(n.id)) continue;
     const anchor = bestAnchor.get(n.id);
     const base = (anchor && pos.get(anchor.id)) ?? { x: 0, y: 0, ax: 0, ay: 0 };
-    const angle = (i++ * 2.399963) % (2 * Math.PI); // golden angle: spreads fan-outs
+    const golden = i++ * 2.399963;
+    const angle = golden % (2 * Math.PI); // golden angle: spreads fan-outs
     const r = (60 + 50 * Math.random()) * spacing;
+    // shape modes: aim outward from the figure's centre, ±60° so fan-outs off
+    // the same chain node still spread. Stretch is vertical-only, so drop it.
+    const away = Math.atan2(base.y - centre.y, base.x - centre.x);
+    const dir = shape ? away + ((golden % 1) - 0.5) * (2 * Math.PI) / 3 : angle;
+    const stretch = shape ? 1 : vStretch / spacing;
     pos.set(n.id, {
-      x: base.x + r * Math.cos(angle),
-      y: base.y + r * Math.sin(angle) * (vStretch / spacing),
+      x: base.x + r * Math.cos(dir),
+      y: base.y + r * Math.sin(dir) * stretch,
       // cluster around the path node at the root of this node's anchor chain
       ax: base.ax,
       ay: base.ay,
@@ -185,7 +270,17 @@ interface Body {
   fixedY: boolean;
 }
 
-export function startLayout(graph: Graph, spacing: number, onSettled?: () => void): LayoutHandle {
+export interface LayoutOptions {
+  /** shape modes: pull equally on both axes (no horizontal backbone to hug) */
+  isotropic?: boolean;
+  onSettled?: () => void;
+}
+
+export function startLayout(
+  graph: Graph,
+  spacing: number,
+  { isotropic = false, onSettled }: LayoutOptions = {},
+): LayoutHandle {
   const bodies: Body[] = [];
   const index = new Map<string, number>();
   graph.forEachNode((key, attrs) => {
@@ -221,8 +316,9 @@ export function startLayout(graph: Graph, spacing: number, onSettled?: () => voi
   const SPRING_REST = 90 * spacing;
   const ANCHOR_GRAVITY = 0.02; // pull each node toward its anchor
   // the backbone is horizontal, so vertical spread is what fills the stage:
-  // weaken the vertical pull as spacing grows for a much taller settle
-  const Y_GRAVITY = ANCHOR_GRAVITY / (spacing * Math.sqrt(spacing));
+  // weaken the vertical pull as spacing grows for a much taller settle. Shape
+  // modes have no such axis — an equal pull keeps rings round.
+  const Y_GRAVITY = isotropic ? ANCHOR_GRAVITY : ANCHOR_GRAVITY / (spacing * Math.sqrt(spacing));
   let temperature = 32 * spacing; // headroom for the stronger repulsion to act
   let stopped = false;
   let steps = 0;

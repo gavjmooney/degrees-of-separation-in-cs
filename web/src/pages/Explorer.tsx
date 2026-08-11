@@ -1,16 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { AuthorSummary, MapMeta, Meta, PathResponse } from "../api/types";
 import { AuthorSearchBox } from "../components/AuthorSearchBox";
 import { GraphCanvas, type ViewOptions } from "../components/GraphCanvas";
 import { fitView, MapView, type MapZoomPlan, type PathPoint } from "../components/MapView";
 import { SidePanel, type Selection } from "../components/SidePanel";
-import { COLORS } from "../graph/styling";
+import { PublishFind } from "../components/PublishFind";
+import { bestHops, findKey, keyOf, loadFinds, recordFind, type Find } from "../finds/store";
+import { getColors } from "../graph/styling";
+import type { LabelMode } from "../graph/labels";
 import type { ViewMode } from "../graph/layout";
+import { ThemeToggle, useTheme } from "../theme";
 
-const SPACING = { cozy: 1, normal: 2, airy: 4 } as const;
-type SpacingKey = keyof typeof SPACING;
+// label modes, in dropdown order. "few" labels the main path plus as many more
+// as fit without overlapping; "custom" is driven by its own slider.
+const LABEL_CHOICES = {
+  path: "path only",
+  few: "few",
+  allsp: "all shortest paths",
+  many: "many",
+  all: "all",
+  custom: "custom",
+} as const;
+type LabelChoice = keyof typeof LABEL_CHOICES;
 
 /** Map positions for every hop of a path, or undefined if any hop is unmapped. */
 function pathPointsFor(
@@ -30,6 +43,8 @@ export function Explorer() {
   const { fromId, toId } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const C = getColors(theme);
 
   // k: "0" = the single main shortest path, "all" = every shortest path
   // (the server's SP-DAG, fetched as k=0), "1"/"2" = neighbourhood hops
@@ -52,13 +67,30 @@ export function Explorer() {
   const prefetchRef = useRef<{ key: string; resp: PathResponse } | null>(null);
 
   const [mode, setMode] = useState<ViewMode>("organic");
-  const [spacing, setSpacing] = useState<SpacingKey>("normal");
   const [legendOpen, setLegendOpen] = useState(false); // mobile only: legend is a toggle
   // mobile only: collapse the search/controls chrome to maximise the canvas
   const [chromeHidden, setChromeHidden] = useState(false);
   const [minWeight, setMinWeight] = useState(1);
-  const [labelBudget, setLabelBudget] = useState(12);
-  const options: ViewOptions = { mode, spacing: SPACING[spacing], minWeight, labelBudget };
+  const [labelChoice, setLabelChoice] = useState<LabelChoice>("few");
+  const [labelCount, setLabelCount] = useState(12); // "custom" only
+  // stable identity: GraphCanvas re-picks its labels whenever this changes
+  const labels = useMemo<LabelMode>(() => {
+    switch (labelChoice) {
+      case "path":
+        return { kind: "path" };
+      case "allsp":
+        return { kind: "allsp" };
+      case "many":
+        return { kind: "top", n: 30 };
+      case "all":
+        return { kind: "top", n: 9999 };
+      case "custom":
+        return { kind: "custom", n: labelCount };
+      default:
+        return { kind: "few" };
+    }
+  }, [labelChoice, labelCount]);
+  const options: ViewOptions = { mode, minWeight, labels };
 
   // sliders: max-nodes changes refetch (debounced); min-weight filters live
   const [maxNodesLocal, setMaxNodesLocal] = useState(maxNodes);
@@ -132,15 +164,15 @@ export function Explorer() {
           const oldEnds = po && pt ? ([po, pt] as { x: number; y: number }[]) : null;
           setZoomPlan({
             targets: [
-              { x: pa.x, y: pa.y, color: COLORS.endpointA, name: a.name },
-              { x: pb.x, y: pb.y, color: COLORS.endpointB, name: b.name },
+              { x: pa.x, y: pa.y, color: C.endpointA, name: a.name },
+              { x: pb.x, y: pb.y, color: C.endpointB, name: b.name },
             ],
             pathPoints,
             oldTargets:
               oldPath && oldEnds
                 ? [
-                    { ...oldEnds[0], color: COLORS.endpointA, name: oldPath[0].name },
-                    { ...oldEnds[1], color: COLORS.endpointB, name: oldPath[oldPath.length - 1].name },
+                    { ...oldEnds[0], color: C.endpointA, name: oldPath[0].name },
+                    { ...oldEnds[1], color: C.endpointB, name: oldPath[oldPath.length - 1].name },
                   ]
                 : undefined,
             oldPathPoints,
@@ -188,6 +220,55 @@ export function Explorer() {
     endpoints && endpoints.a.id === Number(fromId) && endpoints.b.id === Number(toId),
   );
 
+  // Every resolved query joins the local history that drives /records — this
+  // browser only, nothing sent anywhere. Beating your own longest chain raises a
+  // nudge; the best is tracked in a ref so recording can't re-trigger itself.
+  const bestRef = useRef(0);
+  const [newBest, setNewBest] = useState<number | null>(null);
+  // the current query as a storable find, so it can be published from here
+  const [currentFind, setCurrentFind] = useState<Find | null>(null);
+  const [published, setPublished] = useState(false);
+  const [publishing, setPublishing] = useState<Find | null>(null);
+  // is there a global board on this deployment? one tiny request settles it
+  const [boardOn, setBoardOn] = useState(false);
+  useEffect(() => {
+    bestRef.current = bestHops(loadFinds());
+    api.records(1).then((r) => setBoardOn(r !== null), () => setBoardOn(false));
+  }, []);
+  useEffect(() => {
+    const hops = data?.hops ?? 0;
+    if (!(data?.found && dataMatchesUrl && meta) || hops < 1) {
+      setNewBest(null);
+      setCurrentFind(null);
+      return;
+    }
+    const pubCounts = new Map(data.graph.nodes.map((n) => [n.id, n.pubCount]));
+    const endpoint = (p: { id: number; name: string; isDisambig: boolean }) => ({
+      id: p.id,
+      name: p.name,
+      isDisambig: p.isDisambig,
+      pubCount: pubCounts.get(p.id) ?? 0,
+    });
+    const find: Find = {
+      a: endpoint(data.path[0]),
+      b: endpoint(data.path[data.path.length - 1]),
+      hops,
+      chain: data.path.map((p) => p.name),
+      at: new Date().toISOString(),
+      built: meta.built,
+    };
+    const history = recordFind(find);
+    const key = findKey(find.a.id, find.b.id);
+    setCurrentFind(find);
+    setPublished(history.some((f) => keyOf(f) === key && f.shared === true));
+    if (hops > bestRef.current) {
+      bestRef.current = hops;
+      setNewBest(hops);
+    } else {
+      setNewBest(null);
+    }
+  }, [data, dataMatchesUrl, meta]);
+
   const finishHome = () => {
     setA(null);
     setB(null);
@@ -220,8 +301,8 @@ export function Explorer() {
         const pathPoints = pathPointsFor(path, pos);
         setZoomPlan({
           targets: [
-            { x: pa.x, y: pa.y, color: COLORS.endpointA, name: path[0].name },
-            { x: pb.x, y: pb.y, color: COLORS.endpointB, name: path[path.length - 1].name },
+            { x: pa.x, y: pa.y, color: C.endpointA, name: path[0].name },
+            { x: pb.x, y: pb.y, color: C.endpointB, name: path[path.length - 1].name },
           ],
           pathPoints,
           startView: fitView(pathPoints ?? [pa, pb]),
@@ -243,6 +324,8 @@ export function Explorer() {
       edges: data.graph.edges.filter((e) => e.onPath),
     };
   }, [data, k]);
+  // the custom slider tops out at "every node in the current view"
+  const labelMax = Math.max(1, displayGraph?.nodes.length ?? 1);
 
   return (
     <div className={`explorer ${chromeHidden ? "chrome-hidden" : ""}`}>
@@ -271,18 +354,27 @@ export function Explorer() {
             </div>
           </div>
         </div>
-        {hasQuery && (
-          <button
-            className="chrome-toggle"
-            title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
-            onClick={() => setChromeHidden(!chromeHidden)}
-          >
-            {chromeHidden ? "⌄ show" : "⌃ hide"}
-          </button>
-        )}
+        <div className="header-actions">
+          {hasQuery && (
+            <button
+              className="chrome-toggle"
+              title={chromeHidden ? "Show search and view options" : "Hide search and view options"}
+              onClick={() => setChromeHidden(!chromeHidden)}
+            >
+              {chromeHidden ? "⌄ show" : "⌃ hide"}
+            </button>
+          )}
+          <ThemeToggle />
+          <Link to="/records" className="nav-link">
+            Records
+          </Link>
+          <Link to="/about" className="nav-link">
+            About
+          </Link>
+        </div>
         <div className="search-row compact">
-          <AuthorSearchBox label="First author…" accent={COLORS.endpointA} value={a} onSelect={setA} />
-          <AuthorSearchBox label="Second author…" accent={COLORS.endpointB} value={b} onSelect={setB} />
+          <AuthorSearchBox label="First author…" accent={C.endpointA} value={a} onSelect={setA} />
+          <AuthorSearchBox label="Second author…" accent={C.endpointB} value={b} onSelect={setB} />
         </div>
         <div className="headline">
           {!hasQuery && !zoomPlan && !(a && b) && (
@@ -298,12 +390,17 @@ export function Explorer() {
           )}
           {!zoomPlan && !loading && data?.found && endpoints && (
             <>
-              <span style={{ color: COLORS.endpointA }}>{endpoints.a.name}</span>
+              <span style={{ color: C.endpointA }}>{endpoints.a.name}</span>
               <span className="hops">
                 {data.hops === 0 ? "is" : `· ${data.hops} ${data.hops === 1 ? "degree" : "degrees"} ·`}
               </span>
-              <span style={{ color: COLORS.endpointB }}>{endpoints.b.name}</span>
+              <span style={{ color: C.endpointB }}>{endpoints.b.name}</span>
             </>
+          )}
+          {!zoomPlan && !loading && newBest !== null && (
+            <Link className="new-best" to="/records" title="See your saved finds">
+              ★ your longest yet
+            </Link>
           )}
         </div>
       </header>
@@ -315,6 +412,9 @@ export function Explorer() {
             <select value={mode} onChange={(e) => setMode(e.target.value as ViewMode)}>
               <option value="organic">organic</option>
               <option value="layered">layered</option>
+              <option value="polygon">polygon</option>
+              <option value="spiral">spiral</option>
+              <option value="grid">grid</option>
             </select>
           </label>
           <label>
@@ -354,23 +454,32 @@ export function Explorer() {
             <span className="slider-val">{minWeight === 1 ? "all" : `${minWeight}+`}</span>
           </label>
           <label>
-            spacing
-            <select value={spacing} onChange={(e) => setSpacing(e.target.value as SpacingKey)}>
-              <option value="cozy">cozy</option>
-              <option value="normal">normal</option>
-              <option value="airy">airy</option>
-            </select>
-          </label>
-          <label>
             labels
-            <select value={labelBudget} onChange={(e) => setLabelBudget(Number(e.target.value))}>
-              <option value="-1">path only</option>
-              <option value="0">all shortest paths</option>
-              <option value="12">key authors</option>
-              <option value="30">many</option>
-              <option value="9999">all</option>
+            <select
+              value={labelChoice}
+              onChange={(e) => setLabelChoice(e.target.value as LabelChoice)}
+            >
+              {Object.entries(LABEL_CHOICES).map(([key, text]) => (
+                <option key={key} value={key}>
+                  {text}
+                </option>
+              ))}
             </select>
           </label>
+          {labelChoice === "custom" && (
+            <label>
+              how many
+              <input
+                type="range"
+                min={1}
+                max={labelMax}
+                step={1}
+                value={Math.min(labelCount, labelMax)}
+                onChange={(e) => setLabelCount(Number(e.target.value))}
+              />
+              <span className="slider-val">{Math.min(labelCount, labelMax)}</span>
+            </label>
+          )}
         </div>
       )}
 
@@ -463,11 +572,10 @@ export function Explorer() {
                       : `${k} hop${k === "1" ? "" : "s"}`,
                 maxNodes,
                 minWeight,
-                spacing,
                 labels:
-                  { [-1]: "path only", 0: "all shortest paths", 12: "key authors", 30: "many", 9999: "all" }[
-                    labelBudget
-                  ] ?? String(labelBudget),
+                  labelChoice === "custom"
+                    ? `custom (${Math.min(labelCount, labelMax)})`
+                    : LABEL_CHOICES[labelChoice],
               },
             }}
             onNodeClick={(id) => setSelection({ type: "node", id })}
@@ -477,6 +585,32 @@ export function Explorer() {
         )}
         {hasQuery && !zoomPlan && loading && (
           <div className="loading-stage">Running breadth-first search…</div>
+        )}
+        {/* publishing lives here too, at the moment of the find — not only on /records */}
+        {hasQuery && !zoomPlan && !loading && boardOn && currentFind && dataMatchesUrl && (
+          published ? (
+            <span className="publish-btn on-board" title="This find is on the global board">
+              ★ on the board
+            </span>
+          ) : (
+            <button
+              className="publish-btn"
+              title="Publish this find to the global board"
+              onClick={() => setPublishing(currentFind)}
+            >
+              ☆ publish
+            </button>
+          )
+        )}
+        {publishing && (
+          <PublishFind
+            find={publishing}
+            onCancel={() => setPublishing(null)}
+            onPublished={() => {
+              setPublishing(null);
+              setPublished(true);
+            }}
+          />
         )}
         {selection && (
           <SidePanel
@@ -495,18 +629,21 @@ export function Explorer() {
         )}
         {hasQuery && !zoomPlan && data?.found && (
           <div className={`legend ${legendOpen ? "legend-open" : ""}`}>
-            <span><i className="sq" style={{ background: COLORS.endpointA }} /> start</span>
-            <span><i className="sq" style={{ background: COLORS.endpointB }} /> end</span>
-            <span><i className="sq" style={{ background: COLORS.pathNode }} /> shortest path</span>
-            <span><i className="sq" style={{ background: COLORS.altNode }} /> alternative shortest path</span>
-            <span><i style={{ background: COLORS.legendNeighbour }} /> neighbourhood (fades with distance)</span>
-            <span><i style={{ background: COLORS.disambig }} /> disambiguation profile</span>
+            <span><i className="sq glyph-author" style={{ background: C.endpointA }} /> author 1</span>
+            <span><i className="sq glyph-author" style={{ background: C.endpointB }} /> author 2</span>
+            <span><i className="sq glyph-path" style={{ background: C.pathNode }} /> shortest path</span>
+            <span><i className="sq glyph-alt" style={{ background: C.altNode }} /> alternative shortest path(s)</span>
+            <span><i className="glyph-neighbour" style={{ background: C.legendNeighbour }} /> neighbourhood</span>
+            <span><i className="glyph-neighbour" style={{ background: C.disambig }} /> disambiguation profile</span>
             <span className="legend-glyphs">
-              <i className="dot-s" style={{ background: COLORS.legendNeighbour }} />
-              <i className="dot-l" style={{ background: COLORS.legendNeighbour }} /> node size = publications
+              <i className="dot-s" style={{ background: C.legendNeighbour }} />
+              <i className="dot-l" style={{ background: C.legendNeighbour }} /> node size = # of publications
+              <span className="legend-note">
+                authors 1 &amp; 2 are always the largest; shortest-path nodes a little bigger
+              </span>
             </span>
             <span>
-              <i className="edge-glyph" /> edge thickness &amp; opacity = shared papers
+              <i className="edge-glyph" /> edge thickness &amp; opacity = # of shared papers
             </span>
           </div>
         )}

@@ -65,6 +65,20 @@ export interface Meta {
   graph: { nodes: number; undirected_edges: number };
 }
 
+/** A published find on the global board. Hop counts are the server's own. */
+export interface LeaderboardRecord {
+  id: number;
+  a: { id: number; name: string; pubCount: number };
+  b: { id: number; name: string; pubCount: number };
+  hops: number;
+  /** submitter's chosen name, or null for anonymous; unverified either way */
+  by: string | null;
+  built: string;
+  /** verified against an older dblp build than the one now deployed */
+  stale: boolean;
+  found: string;
+}
+
 export interface MapCommunity {
   id: number;
   label: string;

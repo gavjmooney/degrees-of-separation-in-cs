@@ -6,7 +6,33 @@
  * not a raster of the WebGL canvas.
  */
 import type Sigma from "sigma";
-import { COLORS } from "./styling";
+import { getColors, labelFontFor } from "./styling";
+
+type Theme = "light" | "dark";
+
+/** Chrome colours (header, frame, text) for the export, matched to the theme.
+ *  Node/edge colours are read straight from the themed graph model. */
+function chromeFor(theme: Theme) {
+  return theme === "light"
+    ? {
+        headerBg: "#ffffff",
+        border: "#d8dce4",
+        dim: "#5c6678",
+        title: "#1a1f29",
+        pill: "rgba(255,255,255,0.82)",
+        legendBg: "rgba(255,255,255,0.92)",
+        edgeGlyph: "#9aa6b8",
+      }
+    : {
+        headerBg: "#161b24",
+        border: "#2b3245",
+        dim: "#9aa3b5",
+        title: "#e8eaf0",
+        pill: "rgba(13,16,22,0.8)",
+        legendBg: "rgba(16,19,26,0.85)",
+        edgeGlyph: "#76869a",
+      };
+}
 
 export interface ExportContext {
   fromName: string;
@@ -18,7 +44,6 @@ export interface ExportContext {
     neighbours: string;
     maxNodes: number;
     minWeight: number;
-    spacing: string;
     labels: string;
   };
 }
@@ -34,13 +59,9 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function labelFont(type: string, defaultSize: number): { size: number; weight: number } {
-  if (type === "endpointSquare") return { size: 12.4, weight: 700 };
-  if (type === "square") return { size: 10.8, weight: 700 };
-  return { size: defaultSize, weight: 500 };
-}
-
-export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
+export function buildSvg(sigma: Sigma, ctx: ExportContext, theme: Theme = "dark"): string {
+  const COLORS = getColors(theme);
+  const chrome = chromeFor(theme);
   const { width, height } = sigma.getDimensions();
   const graph = sigma.getGraph();
   const totalH = HEADER_H + height;
@@ -54,26 +75,26 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
   out.push(`<rect width="${width}" height="${totalH}" fill="${COLORS.background}"/>`);
 
   // ---- header ----
-  out.push(`<rect width="${width}" height="${HEADER_H}" fill="#161b24"/>`);
-  out.push(`<line x1="0" y1="${HEADER_H}" x2="${width}" y2="${HEADER_H}" stroke="#2b3245"/>`);
+  out.push(`<rect width="${width}" height="${HEADER_H}" fill="${chrome.headerBg}"/>`);
+  out.push(`<line x1="0" y1="${HEADER_H}" x2="${width}" y2="${HEADER_H}" stroke="${chrome.border}"/>`);
   const degrees =
     ctx.hops === 0 ? "same author" : `${ctx.hops} ${ctx.hops === 1 ? "degree" : "degrees"}`;
   out.push(
     `<text x="20" y="30" font-size="15">` +
-      `<tspan fill="#e8eaf0" font-weight="700">Degrees of Separation in CS</tspan>` +
-      `<tspan fill="#9aa3b5">   ·   </tspan>` +
+      `<tspan fill="${chrome.title}" font-weight="700">Degrees of Separation in CS</tspan>` +
+      `<tspan fill="${chrome.dim}">   ·   </tspan>` +
       `<tspan fill="${COLORS.endpointA}" font-weight="700">${esc(ctx.fromName)}</tspan>` +
-      `<tspan fill="#9aa3b5"> · ${degrees} · </tspan>` +
+      `<tspan fill="${chrome.dim}"> · ${degrees} · </tspan>` +
       `<tspan fill="${COLORS.endpointB}" font-weight="700">${esc(ctx.toName)}</tspan>` +
       `</text>`,
   );
   const c = ctx.controls;
   out.push(
-    `<text x="20" y="56" font-size="12" fill="#9aa3b5">` +
+    `<text x="20" y="56" font-size="12" fill="${chrome.dim}">` +
       esc(
         `view ${c.view}   ·   neighbours ${c.neighbours}   ·   max nodes ${c.maxNodes}   ·   ` +
           `min papers/link ${c.minWeight === 1 ? "all" : `${c.minWeight}+`}   ·   ` +
-          `spacing ${c.spacing}   ·   labels ${c.labels}`,
+          `labels ${c.labels}`,
       ) +
       `</text>`,
   );
@@ -133,12 +154,12 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
     }
     const reduced = dd as unknown as { label?: string | null; forceLabel?: boolean };
     if (reduced.label && reduced.forceLabel) {
-      const { size: fs, weight } = labelFont(type, defaultLabelSize);
+      const { px: fs, weight } = labelFontFor(type, defaultLabelSize);
       const tw = reduced.label.length * fs * 0.56;
       const ty = p.y - dd.size - 5;
       labelParts.push(
         `<rect x="${(p.x - tw / 2 - 3).toFixed(1)}" y="${(ty - fs - 2).toFixed(1)}" ` +
-          `width="${(tw + 6).toFixed(1)}" height="${(fs + 5).toFixed(1)}" fill="rgba(13,16,22,0.8)"/>` +
+          `width="${(tw + 6).toFixed(1)}" height="${(fs + 5).toFixed(1)}" fill="${chrome.pill}"/>` +
           `<text x="${p.x.toFixed(1)}" y="${(ty - 2).toFixed(1)}" text-anchor="middle" ` +
           `font-size="${fs}" font-weight="${weight}" fill="${COLORS.labelText}">${esc(reduced.label)}</text>`,
       );
@@ -151,14 +172,14 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
 
   // ---- legend (bottom-left, mirrors the on-screen legend) ----
   const entries: { color: string; square: boolean; text: string }[] = [
-    { color: COLORS.endpointA, square: true, text: "start" },
-    { color: COLORS.endpointB, square: true, text: "end" },
+    { color: COLORS.endpointA, square: true, text: "author 1" },
+    { color: COLORS.endpointB, square: true, text: "author 2" },
     { color: COLORS.pathNode, square: true, text: "shortest path" },
-    { color: COLORS.altNode, square: true, text: "alternative shortest path" },
-    { color: COLORS.legendNeighbour, square: false, text: "neighbourhood (fades with distance)" },
+    { color: COLORS.altNode, square: true, text: "alternative shortest path(s)" },
+    { color: COLORS.legendNeighbour, square: false, text: "neighbourhood" },
     { color: COLORS.disambig, square: false, text: "disambiguation profile" },
-    { color: COLORS.legendNeighbour, square: false, text: "node size = publications" },
-    { color: "#76869a", square: false, text: "edge thickness & opacity = shared papers" },
+    { color: COLORS.legendNeighbour, square: false, text: "node size = # of publications" },
+    { color: chrome.edgeGlyph, square: false, text: "edge thickness & opacity = # of shared papers" },
   ];
   const lh = 17;
   const legendH = entries.length * lh + 16;
@@ -166,7 +187,7 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
   const ly = totalH - legendH - 14;
   out.push(
     `<g transform="translate(14 ${ly})">` +
-      `<rect width="${legendW}" height="${legendH}" rx="8" fill="rgba(16,19,26,0.85)" stroke="#2b3245"/>`,
+      `<rect width="${legendW}" height="${legendH}" rx="8" fill="${chrome.legendBg}" stroke="${chrome.border}"/>`,
   );
   entries.forEach((e, i) => {
     const cy = 14 + i * lh;
@@ -175,7 +196,7 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
         ? `<rect x="10" y="${cy - 4}" width="8" height="8" fill="${e.color}"/>`
         : `<circle cx="14" cy="${cy}" r="4" fill="${e.color}"/>`,
     );
-    out.push(`<text x="26" y="${cy + 3.5}" font-size="10.5" fill="#9aa3b5">${esc(e.text)}</text>`);
+    out.push(`<text x="26" y="${cy + 3.5}" font-size="10.5" fill="${chrome.dim}">${esc(e.text)}</text>`);
   });
   out.push(`</g>`);
 
@@ -183,8 +204,8 @@ export function buildSvg(sigma: Sigma, ctx: ExportContext): string {
   return out.join("\n");
 }
 
-export function downloadSvg(sigma: Sigma, ctx: ExportContext): void {
-  const svg = buildSvg(sigma, ctx);
+export function downloadSvg(sigma: Sigma, ctx: ExportContext, theme: Theme = "dark"): void {
+  const svg = buildSvg(sigma, ctx, theme);
   const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const blob = new Blob([svg], { type: "image/svg+xml" });
   const url = URL.createObjectURL(blob);

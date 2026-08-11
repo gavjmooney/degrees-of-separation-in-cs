@@ -5,10 +5,47 @@
   --border: #2b3245;
   --text: #e8eaf0;
   --text-dim: #9aa3b5;
+  --text-faint: #5a6478;
   --accent-a: #ff7b39;
+  --accent-a-hover: #ff9457;
   --accent-b: #3fc1ff;
   --path: #ffd166;
   --disambig: #b07cd8;
+  --error: #ff7575;
+  --caution: #d9a441;
+  --overlay: rgba(16, 19, 26, 0.9); /* translucent panel bg (legend, hover card) */
+  --row-border: #1f2531;
+  --hover-bg: #232a38;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --map-bg: #08090c; /* backdrop behind the transparent network-map image */
+  /* shared header/navbar height so the top bar is identical across pages */
+  --nav-h: 3.8rem;
+}
+
+/* Light theme — same variables, re-valued. Applied via <html data-theme="light">
+   (set before paint by the inline script in index.html). The interactive graph
+   recolours from a parallel light palette in graph/styling.ts; the landing-page
+   map is a pre-rendered dark image and stays dark. */
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --bg-raised: #ffffff;
+  --bg-panel: #ffffff;
+  --border: #d8dce4;
+  --text: #1a1f29;
+  --text-dim: #5c6678;
+  --text-faint: #8a93a5;
+  --accent-a: #e8590c;
+  --accent-a-hover: #f3792e;
+  --accent-b: #1668b5;
+  --path: #bb8400;
+  --disambig: #7c4fb0;
+  --error: #cf2b2b;
+  --caution: #a9760a;
+  --overlay: rgba(255, 255, 255, 0.92);
+  --row-border: #e6e9ef;
+  --hover-bg: #eef1f6;
+  --shadow: rgba(30, 40, 70, 0.14);
+  --map-bg: #e7ebf1;
 }
 
 * {
@@ -32,7 +69,7 @@ button {
 }
 
 .error {
-  color: #ff7575;
+  color: var(--error);
 }
 
 .muted {
@@ -62,6 +99,7 @@ button {
   display: flex;
   align-items: center;
   gap: 1.2rem;
+  min-height: var(--nav-h);
   padding: 0.55rem 1.2rem;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
@@ -109,6 +147,8 @@ button {
   white-space: nowrap;
   border: none;
   padding: 0;
+  text-align: left;
+  text-decoration: none;
   background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
   -webkit-background-clip: text;
   background-clip: text;
@@ -220,7 +260,7 @@ button {
   z-index: 40;
   max-height: 420px;
   overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px var(--shadow);
 }
 
 .dropdown li {
@@ -230,7 +270,7 @@ button {
 }
 
 .dropdown li.active {
-  background: #232a38;
+  background: var(--hover-bg);
 }
 
 .dropdown li.empty {
@@ -331,7 +371,7 @@ button {
 }
 
 .path-caution {
-  color: #d9a441;
+  color: var(--caution);
   font-size: 0.72rem;
   margin-top: 0.15rem;
 }
@@ -395,7 +435,7 @@ button {
   overflow: hidden;
   z-index: 15; /* above the local graph view during cross-fade transitions */
   /* flat: the radial glow is drawn on the canvas, centred on the network */
-  background: #08090c;
+  background: var(--map-bg);
 }
 
 .map-fade-in {
@@ -464,7 +504,7 @@ button {
 .map-legend .legend-dim {
   margin-top: 0.3rem;
   font-size: 0.68rem;
-  color: #5a6478;
+  color: var(--text-faint);
 }
 
 .map-legend a {
@@ -481,7 +521,7 @@ button {
   top: 1rem;
   left: 1rem;
   width: 250px;
-  background: rgba(16, 19, 26, 0.92);
+  background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.65rem 0.85rem;
@@ -512,7 +552,7 @@ button {
 .hover-hint {
   margin-top: 0.3rem;
   font-size: 0.7rem;
-  color: #5a6478;
+  color: var(--text-faint);
 }
 
 .recenter {
@@ -557,7 +597,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  background: rgba(16, 19, 26, 0.85);
+  background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
@@ -572,10 +612,34 @@ button {
   height: 0.7em;
   border-radius: 50%;
   margin-right: 0.45em;
+  vertical-align: middle; /* keep the differently-sized glyphs aligned with text */
 }
 
 .legend i.sq {
-  border-radius: 1px;
+  border-radius: 2px;
+}
+
+/* glyph sizes mirror the actual node sizes in the graph:
+   the two authors are largest, shortest-path nodes a little bigger,
+   everything else (neighbours, disambiguation) small */
+.legend i.glyph-author {
+  width: 1.05em;
+  height: 1.05em;
+}
+
+.legend i.glyph-path {
+  width: 0.78em;
+  height: 0.78em;
+}
+
+.legend i.glyph-alt {
+  width: 0.62em;
+  height: 0.62em;
+}
+
+.legend i.glyph-neighbour {
+  width: 0.55em;
+  height: 0.55em;
 }
 
 .legend i.dot-s {
@@ -596,6 +660,16 @@ button {
   background: linear-gradient(90deg, rgba(118, 134, 166, 0.95), rgba(118, 134, 166, 0.15));
 }
 
+/* sub-note clarifying that the size encoding applies to all node types */
+.legend-note {
+  display: block;
+  margin-left: 1.55em;
+  font-size: 0.66rem;
+  font-style: italic;
+  color: var(--text-dim);
+  opacity: 0.85;
+}
+
 /* ---------- Side panel ---------- */
 .side-panel {
   position: absolute;
@@ -609,7 +683,7 @@ button {
   padding: 1.2rem 1.4rem;
   overflow-y: auto;
   z-index: 15;
-  box-shadow: -12px 0 30px rgba(0, 0, 0, 0.4);
+  box-shadow: -12px 0 30px var(--shadow);
 }
 
 .side-panel .close {
@@ -705,7 +779,7 @@ button {
 }
 
 .coauthor-list li {
-  border-bottom: 1px solid #1f2531;
+  border-bottom: 1px solid var(--row-border);
 }
 
 .coauthor {
@@ -721,7 +795,7 @@ button {
 }
 
 .coauthor:hover {
-  background: #1d2330;
+  background: var(--hover-bg);
 }
 
 .coauthor-name {
@@ -742,7 +816,7 @@ button {
 
 .paper-list li {
   padding: 0.45rem 0;
-  border-bottom: 1px solid #1f2531;
+  border-bottom: 1px solid var(--row-border);
   font-size: 0.85rem;
   line-height: 1.35;
 }
@@ -789,7 +863,7 @@ button {
   left: 1rem;
   bottom: 1rem;
   z-index: 11;
-  background: rgba(16, 19, 26, 0.9);
+  background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 0.35rem 0.75rem;
@@ -854,6 +928,12 @@ button {
     max-width: 72vw;
   }
 
+  /* roomier tap targets for the legend links (incl. the about link) on touch */
+  .map-legend a {
+    display: inline-block;
+    padding: 0.2rem 0;
+  }
+
   .toolbar {
     gap: 0.5rem 0.8rem;
     padding: 0.35rem 0.75rem;
@@ -889,10 +969,9 @@ button {
 }
 
 @media (max-width: 700px) {
+  /* chrome toggle lives inside .header-actions, so it just needs to appear */
   .chrome-toggle {
     display: inline-block;
-    margin-left: auto; /* right edge of the brand row */
-    order: 1;
   }
 
   .brand-block {
@@ -905,4 +984,922 @@ button {
   .explorer.chrome-hidden .toolbar {
     display: none;
   }
+}
+
+/* ---------- About page ---------- */
+.about {
+  min-height: 100%;
+  /* a soft glow centred above the reading column, echoing the map's vignette */
+  background:
+    radial-gradient(1100px 600px at 50% -10%, rgba(63, 193, 255, 0.07), transparent 60%),
+    radial-gradient(900px 500px at 50% -10%, rgba(255, 123, 57, 0.05), transparent 55%),
+    var(--bg);
+}
+
+/* identical to .explorer header (same bg, gap, height, border) so the top bar
+   doesn't shift when navigating between pages; only addition is sticky scroll */
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  min-height: var(--nav-h);
+  padding: 0.55rem 1.2rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.brand-logo-link {
+  display: flex;
+  flex: none;
+}
+
+/* Right-aligned cluster of header controls (theme toggle, About/Explorer link,
+   and on mobile the chrome toggle). order:10 pushes it past the flex:1 headline
+   to the right edge on desktop; it owns the right-alignment so the children
+   inside don't each need their own margin. */
+.header-actions {
+  order: 10;
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* colour-theme toggle */
+.theme-toggle {
+  flex: none;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.about-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2.6rem 1.4rem 5rem;
+}
+
+.about-title {
+  font-size: 2.6rem;
+  /* roomier line box + a little padding so descenders (g, p) aren't clipped by
+     background-clip: text */
+  line-height: 1.2;
+  padding-bottom: 0.12em;
+  margin: 0 0 0.5rem;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.about-byline {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin: 0 0 1.8rem !important;
+}
+
+.about-byline a {
+  color: var(--accent-b);
+  text-decoration: none;
+}
+
+.about-byline a:hover {
+  text-decoration: underline;
+}
+
+.about-lede {
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 1rem;
+}
+
+/* inline citation markers [n] */
+.cite {
+  font-size: 0.78em;
+  font-weight: 600;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent-b);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cite:hover {
+  text-decoration: underline;
+}
+
+.fn-ref {
+  vertical-align: super;
+  font-size: 0.8em;
+  line-height: 0;
+  color: var(--accent-b);
+  text-decoration: none;
+}
+
+/* footnote with a hover/focus popup shown next to the * marker */
+.fn {
+  position: relative;
+  outline: none;
+}
+
+.fn-pop {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: min(260px, 70vw);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-align: left;
+  box-shadow: 0 8px 24px var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.fn:hover .fn-pop,
+.fn:focus-within .fn-pop {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* spoiler: a redacted block that reveals the diameter on click */
+.spoiler {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.05rem 0.55rem;
+  vertical-align: baseline;
+}
+
+.spoiler:hover {
+  color: var(--text);
+  border-color: var(--accent-a);
+}
+
+/* charts (D3-rendered) */
+.chart {
+  margin: 1.4rem 0 1.6rem;
+}
+
+.chart-host {
+  position: relative;
+}
+
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.4rem;
+}
+
+.chart figcaption {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 0.6rem;
+}
+
+/* d3-axis output */
+.chart .axis path.domain,
+.chart .axis line {
+  stroke: var(--border);
+}
+
+.chart .axis text {
+  fill: var(--text-dim);
+  font-size: 11px;
+}
+
+/* faint gridlines behind the data */
+.chart .grid line {
+  stroke: var(--border);
+  opacity: 0.4;
+  shape-rendering: crispEdges;
+}
+
+.chart-title {
+  fill: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chart .axis-title {
+  fill: var(--text-dim);
+  font-size: 11px;
+}
+
+.chart-legend text {
+  fill: var(--text-dim);
+  font-size: 11px;
+}
+
+.chart .bar {
+  fill: var(--accent-a);
+}
+
+.chart .bar:hover {
+  fill: var(--accent-a-hover);
+}
+
+/* pooled ("76+") bar and the expanded tail range bins in the degree histogram */
+.chart .bar.overflow,
+.chart .bar.tail {
+  opacity: 0.6;
+}
+
+.chart .bar.overflow:hover,
+.chart .bar.tail:hover {
+  opacity: 0.85;
+}
+
+/* boundary between per-degree bars (0–30) and the expanded tail */
+.chart .tail-divider {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+/* labels under the expanded tail range bins — brighter than the axis numbers
+   so the extra bins read clearly */
+.chart .tail-label {
+  fill: var(--text);
+  font-size: 10px;
+}
+
+.chart .mean-line {
+  stroke: var(--accent-b);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.chart-tip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px var(--shadow);
+  z-index: 6;
+}
+
+/* footnotes + references */
+.footnotes {
+  margin-top: 2.4rem !important;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.footnote {
+  font-size: 0.82rem !important;
+  color: var(--text-dim);
+}
+
+.footnote a {
+  color: var(--accent-b);
+  text-decoration: none;
+}
+
+.references {
+  margin: 0;
+  padding-left: 1.6rem;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.references li {
+  margin-bottom: 0.6rem;
+  /* offset so anchor jumps land below the sticky header */
+  scroll-margin-top: 4rem;
+}
+
+.references a {
+  color: var(--accent-b);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.references a:hover {
+  text-decoration: underline;
+}
+
+.about-body section {
+  margin-top: 2.6rem;
+}
+
+.about-body h2 {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--accent-b);
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.about-body p {
+  line-height: 1.7;
+  color: var(--text-dim);
+  margin: 0 0 1rem;
+}
+
+.about-body a {
+  color: var(--accent-b);
+  text-decoration: none;
+}
+
+.about-body a:hover {
+  text-decoration: underline;
+}
+
+.about-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.about-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.about-list li {
+  position: relative;
+  padding: 0 0 0 1.2rem;
+  margin-bottom: 0.9rem;
+  line-height: 1.65;
+  color: var(--text-dim);
+}
+
+.about-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.7rem;
+  margin: 0 0 1.4rem;
+}
+
+.stat-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.95rem 0.85rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-a);
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 0.35rem;
+}
+
+.stat-sub {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
+  line-height: 1.35;
+}
+
+.stat-sub a {
+  color: var(--accent-b);
+  text-decoration: none;
+}
+
+.stat-sub a:hover {
+  text-decoration: underline;
+}
+
+/* inline KaTeX math */
+.tex {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.stat-sub .tex .katex {
+  font-size: 1em;
+}
+
+.about-cta {
+  display: inline-block;
+  margin-top: 2.8rem;
+  padding: 0.7rem 1.3rem;
+  border-radius: 99px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--bg) !important;
+  text-decoration: none !important;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+}
+
+.about-cta:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 700px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .about-title {
+    font-size: 2rem;
+  }
+
+  .about-body {
+    padding: 1.8rem 1.1rem 4rem;
+  }
+
+  /* on the Explorer header, sit the actions cluster in the top brand row
+     rather than after the wrapped search row / headline */
+  .explorer .header-actions {
+    order: 1;
+  }
+}
+
+/* ---------- Records: your finds + the global board ---------- */
+.records {
+  min-height: 100%;
+  /* same vignette as the About page, so the two secondary pages feel paired */
+  background:
+    radial-gradient(1100px 600px at 50% -10%, rgba(255, 209, 102, 0.07), transparent 60%),
+    radial-gradient(900px 500px at 50% -10%, rgba(255, 123, 57, 0.05), transparent 55%),
+    var(--bg);
+}
+
+.records-body {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.6rem 1.4rem 5rem;
+}
+
+.records-body .about-lede {
+  margin-bottom: 1.8rem;
+}
+
+.records-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.1rem;
+}
+
+.records-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: -1px;
+}
+
+.records-tabs button:hover {
+  color: var(--text);
+}
+
+.records-tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent-b);
+}
+
+.tab-count {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+}
+
+.records-note {
+  font-size: 0.84rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-wrap: anywhere;
+}
+
+.records-note.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.records-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+
+.records-stats strong {
+  color: var(--text);
+}
+
+.records-clear {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.records-clear:hover {
+  color: var(--text-dim);
+}
+
+.records-clear button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.45rem;
+  text-decoration: none;
+}
+
+.records-empty {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  padding: 1.4rem 0;
+}
+
+.records-empty a {
+  color: var(--accent-b);
+}
+
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.records-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: 0 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.records-table td {
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--row-border);
+  vertical-align: top;
+}
+
+.records-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+.records-table tr.stale td {
+  opacity: 0.62;
+}
+
+.records-table .col-rank {
+  width: 2.4rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.records-table .col-hops {
+  width: 6.5rem;
+}
+
+.records-table .col-date,
+.records-table .col-by {
+  width: 6.4rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.records-table .col-actions {
+  width: 9.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hops-badge {
+  display: inline-block;
+  min-width: 1.9rem;
+  text-align: center;
+  padding: 0.12rem 0.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--path);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.records-pair {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.records-pair:hover {
+  text-decoration: underline;
+}
+
+.records-chain {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  margin-top: 0.2rem;
+  line-height: 1.45;
+}
+
+.col-actions button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  padding: 0.2rem 0.45rem;
+  margin-left: 0.25rem;
+}
+
+.col-actions button:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.col-actions button.publish:hover {
+  color: var(--path);
+  border-color: var(--path);
+}
+
+.col-actions button.danger:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.col-actions .published {
+  color: var(--path);
+  margin-left: 0.3rem;
+}
+
+.records-fineprint {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-faint);
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* publish confirm: a small centred sheet, since it changes what leaves the browser */
+.publish-sheet {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(26rem, calc(100vw - 2rem));
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px var(--shadow);
+  padding: 1.2rem 1.3rem;
+  z-index: 60;
+}
+
+.publish-sheet h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.publish-sheet p {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+}
+
+.publish-explains {
+  color: var(--text-dim);
+  font-size: 0.82rem !important;
+  line-height: 1.55;
+}
+
+.publish-sheet label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.publish-sheet input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.publish-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.publish-actions button {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.publish-actions button.primary {
+  color: #11141a;
+  background: var(--path);
+  border-color: var(--path);
+}
+
+.publish-actions button:disabled {
+  opacity: 0.6;
+}
+
+/* the "your longest yet" nudge in the explorer headline */
+.new-best {
+  margin-left: 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--path);
+  text-decoration: none;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--path);
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .records-body {
+    padding: 1.6rem 0.9rem 4rem;
+  }
+
+  /* the chain preview and the pub-count line are the first things to go */
+  .records-chain,
+  .records-table .col-date {
+    display: none;
+  }
+
+  .records-table .col-actions {
+    width: 5.2rem;
+  }
+
+  .col-actions button.publish {
+    font-size: 0;
+    padding: 0.2rem 0.35rem;
+  }
+
+  .col-actions button.publish::before {
+    content: "☆";
+    font-size: 0.85rem;
+  }
+}
+
+/* publish-to-the-board button: stacks above the SVG export in the canvas corner */
+.publish-btn {
+  position: absolute;
+  right: 1rem;
+  bottom: 7rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.publish-btn:hover {
+  color: var(--path);
+  border-color: var(--path);
+}
+
+.publish-btn.on-board {
+  color: var(--path);
+  border-color: var(--path);
+}
+
+.publish-error {
+  color: var(--error);
+  font-size: 0.82rem !important;
+  margin: 0.6rem 0 0 !important;
+}
+
+/* dims the page behind the publish sheet and swallows clicks aimed past it */
+.publish-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 12, 0.55);
+  z-index: 55;
+}
+
+.records-retry {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.records-retry:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
 }

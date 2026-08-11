@@ -183,7 +183,7 @@ try {
   log(`min-weight slider 1 -> 3: visible nodes ${before} -> ${after}`);
   await page.screenshot({ path: `${shotDir}/07-filtered.png` });
   await page.locator('.toolbar label:has-text("min papers/link") input[type=range]').fill("1");
-  await page.selectOption('.toolbar label:has-text("labels") select', "30");
+  await page.selectOption('.toolbar label:has-text("labels") select', "many");
   await page.waitForTimeout(400);
 
   // 7b. max-nodes slider triggers a refetch (debounced)
@@ -220,24 +220,30 @@ try {
   await page.selectOption('.toolbar label:has-text("neighbours") select', "1");
   await page.waitForTimeout(2000);
 
-  // 8a. spacing visibly changes item sizes
-  const avgSize = () =>
+  // 8a. label modes: "few" fits labels without overlap, "custom" takes a count
+  const labelCount = () =>
     page.evaluate(() => {
-      const graph = window.__sigma.getGraph();
-      let s = 0, c = 0;
-      graph.forEachNode((_n, a) => {
-        s += a.size;
-        c++;
+      const sigma = window.__sigma;
+      let n = 0;
+      sigma.getGraph().forEachNode((node) => {
+        const dd = sigma.getNodeDisplayData(node);
+        if (dd && !dd.hidden && dd.label && dd.forceLabel) n++;
       });
-      return s / c;
+      return n;
     });
-  const sizeNormal = await avgSize();
-  await page.selectOption('.toolbar label:has-text("spacing") select', "airy");
-  await page.waitForTimeout(3500);
-  const sizeAiry = await avgSize();
-  log(`spacing normal -> airy: avg node size ${sizeNormal.toFixed(2)} -> ${sizeAiry.toFixed(2)}`);
-  await page.screenshot({ path: `${shotDir}/08a-airy.png` });
-  await page.selectOption('.toolbar label:has-text("spacing") select', "normal");
+  await page.selectOption('.toolbar label:has-text("labels") select', "few");
+  await page.waitForTimeout(4000); // the overlap-free pick waits for the layout to settle
+  log(`labels few: ${await labelCount()} of ${await visible()} visible nodes labelled`);
+  await page.screenshot({ path: `${shotDir}/08a-labels-few.png` });
+  await page.selectOption('.toolbar label:has-text("labels") select', "custom");
+  const howMany = page.locator('.toolbar label:has-text("how many") input[type=range]');
+  for (const n of ["1", "2", "6", "40"]) {
+    await howMany.fill(n);
+    await page.waitForTimeout(300);
+    log(`labels custom ${n}: ${await labelCount()} labelled`);
+  }
+  await page.screenshot({ path: `${shotDir}/08b-labels-custom.png` });
+  await page.selectOption('.toolbar label:has-text("labels") select', "few");
   await page.waitForTimeout(2000);
 
   // 8. layered view
@@ -262,6 +268,30 @@ try {
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${shotDir}/09-svg-rendered.png` });
   await page.goBack();
+  await page.waitForFunction(() => window.__sigma, null, { timeout: 20000 });
+
+  // 8e. shape views: the main chain is pinned to a figure, neighbours settle
+  // around it. Distance from the chain's centroid is the tell — constant for a
+  // polygon (every node a vertex of the same circle), spread for the others.
+  for (const view of ["polygon", "spiral", "grid"]) {
+    await page.selectOption('.toolbar label:has-text("view") select', view);
+    await page.waitForTimeout(4500);
+    const geom = await page.evaluate(() => {
+      const pts = [];
+      window.__sigma.getGraph().forEachNode((_n, a) => {
+        if (a.onPath) pts.push([a.x, a.y]);
+      });
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      const r = pts.map((p) => Math.hypot(p[0] - cx, p[1] - cy));
+      return { n: pts.length, min: Math.min(...r), max: Math.max(...r) };
+    });
+    log(
+      `${view} view: ${geom.n} chain nodes, ` +
+        `centroid distance ${geom.min.toFixed(0)}–${geom.max.toFixed(0)}`,
+    );
+    await page.screenshot({ path: `${shotDir}/08e-${view}.png` });
+  }
 
   // 8d. clicking the title plays the zoom-out-home animation, then clears both searches
   if (hasMap) {

@@ -3,7 +3,16 @@ import Graph from "graphology";
 import Sigma from "sigma";
 import type { PathEdge, PathNode } from "../api/types";
 import {
+  labelPriority,
+  pickByBudget,
+  pickNonOverlapping,
+  type LabelBox,
+  type LabelMode,
+} from "../graph/labels";
+import {
+  DEFAULT_SPACING,
   deriveAltAndLayers,
+  isShapeMode,
   seedPositions,
   startLayout,
   type LayoutHandle,
@@ -12,20 +21,27 @@ import {
 import {
   AltSquareProgram,
   buildGraphAttributes,
+  type BuildExtras,
   drawLabelAbove,
   EndpointSquareProgram,
+  getColors,
+  LABEL_SIZE,
+  labelFontFor,
+  labelPillBox,
   makeReducers,
+  NODE_SIZE_SCALE,
   PathSquareProgram,
-  COLORS,
+  recolorGraph,
+  setActivePalette,
   type ViewState,
 } from "../graph/styling";
 import { downloadSvg, type ExportContext } from "../graph/svgExport";
+import { useTheme } from "../theme";
 
 export interface ViewOptions {
   mode: ViewMode;
-  spacing: number;
   minWeight: number;
-  labelBudget: number;
+  labels: LabelMode;
 }
 
 export interface EdgeSelection {
@@ -71,15 +87,24 @@ export function GraphCanvas({
   onEdgeClick,
   onBackgroundClick,
 }: Props) {
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
+  // graph + source data kept for in-place recolouring on theme change
+  const graphRef = useRef<Graph | null>(null);
+  const dataRef = useRef<{ nodes: PathNode[]; edges: PathEdge[]; extras: BuildExtras } | null>(null);
   const viewStateRef = useRef<ViewState>({
     hoveredNode: null,
     hoveredNeighbours: null,
     hoveredEdge: null,
     minWeight: options.minWeight,
-    labelBudget: options.labelBudget,
+    labels: options.labels,
+    labelSet: null,
   });
+  // re-picks the labelled nodes for the current mode; owned by the build effect
+  const applyLabelsRef = useRef<(() => void) | null>(null);
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const callbacks = useRef({ onNodeClick, onEdgeClick, onBackgroundClick });
   callbacks.current = { onNodeClick, onEdgeClick, onBackgroundClick };
@@ -100,16 +125,17 @@ export function GraphCanvas({
       nodes,
       edges,
       options.mode,
-      options.spacing,
+      DEFAULT_SPACING,
       extras.layer,
       flip,
     );
 
     const graph = new Graph({ type: "undirected" });
-    // node/edge px sizes shrink as spacing grows: the camera always fits the
-    // whole graph, so on-screen whitespace comes from smaller items, while
-    // the higher repulsion below changes the layout structure itself
-    buildGraphAttributes(graph, nodes, edges, positions, extras, 1 / Math.sqrt(options.spacing));
+    const palette = getColors(themeRef.current);
+    setActivePalette(palette);
+    buildGraphAttributes(graph, nodes, edges, positions, extras, NODE_SIZE_SCALE, palette);
+    graphRef.current = graph;
+    dataRef.current = { nodes, edges, extras };
 
     const state = viewStateRef.current;
     state.hoveredNode = null;
@@ -126,8 +152,8 @@ export function GraphCanvas({
       },
       defaultDrawNodeLabel: drawLabelAbove,
       defaultDrawNodeHover: () => {}, // hover feedback comes from reducers + the info card
-      labelColor: { color: COLORS.labelText },
-      labelSize: Math.max(8, Math.round(11 / Math.sqrt(options.spacing))),
+      labelColor: { color: palette.labelText },
+      labelSize: LABEL_SIZE,
       labelDensity: 10, // importance budget decides labels, not the grid
       labelRenderedSizeThreshold: 0,
       nodeReducer: reducers.nodeReducer,
@@ -147,7 +173,67 @@ export function GraphCanvas({
       camera.animate({ ratio: 1 }, { duration: 1400, easing: "quadraticOut" });
     }
 
-    const layout: LayoutHandle = startLayout(graph, options.spacing);
+    // ---- label selection ----
+    // "custom" takes a prefix of the priority order; "few" walks the same order
+    // but keeps only labels whose pill clears the ones already placed, which
+    // has to be measured in screen space against the settled layout.
+    const priority = labelPriority(nodes, extras.altNodes, fromId * 31 + toId);
+    const pathIds = new Set(nodes.filter((n) => n.onPath).map((n) => n.id));
+    const measure = document.createElement("canvas").getContext("2d");
+    let settled = false;
+
+    const isVisible = (id: number) =>
+      (graph.getNodeAttribute(String(id), "maxWeight") as number) >= state.minWeight;
+
+    const boxOf = (id: number): LabelBox | null => {
+      const key = String(id);
+      if (!measure || !graph.hasNode(key) || !isVisible(id)) return null;
+      const attrs = graph.getNodeAttributes(key);
+      const label = attrs.label as string | null;
+      if (!label) return null;
+      const { px, weight } = labelFontFor(attrs.type as string, LABEL_SIZE);
+      measure.font = `${weight} ${px}px ${sigma.getSetting("labelFont")}`;
+      const at = sigma.graphToViewport({ x: attrs.x as number, y: attrs.y as number });
+      const nodePx = sigma.getNodeDisplayData(key)?.size ?? 0;
+      return labelPillBox(at.x, at.y, nodePx, measure.measureText(label).width, px);
+    };
+
+    const applyLabels = () => {
+      const mode = state.labels;
+      if (mode.kind === "custom") {
+        state.labelSet = pickByBudget(priority, mode.n, isVisible);
+      } else if (mode.kind === "few") {
+        // while the simulation is still running the nodes are moving, so hold
+        // at the main path and fill the rest in once positions are final
+        state.labelSet = settled
+          ? pickNonOverlapping(priority, pathIds, boxOf)
+          : new Set([...pathIds].map(String));
+      } else {
+        state.labelSet = null;
+      }
+      sigma.refresh({ skipIndexation: true });
+    };
+    applyLabelsRef.current = applyLabels;
+    applyLabels();
+
+    // the overlap test is screen-space, so re-pick whenever the view changes
+    const camera = sigma.getCamera();
+    let idleTimer = 0;
+    const onViewChange = () => {
+      if (!settled || state.labels.kind !== "few") return;
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(applyLabels, 150);
+    };
+    camera.on("updated", onViewChange);
+    sigma.on("resize", onViewChange);
+
+    const layout: LayoutHandle = startLayout(graph, DEFAULT_SPACING, {
+      isotropic: isShapeMode(options.mode),
+      onSettled: () => {
+        settled = true;
+        applyLabels();
+      },
+    });
     let raf = 0;
     const tick = () => {
       if (layout.step()) raf = requestAnimationFrame(tick);
@@ -206,19 +292,37 @@ export function GraphCanvas({
 
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(idleTimer);
+      camera.off("updated", onViewChange);
       layout.stop();
       sigma.kill();
       sigmaRef.current = null;
+      applyLabelsRef.current = null;
       setHover(null);
     };
-  }, [nodes, edges, hops, fromId, toId, options.mode, options.spacing]);
+  }, [nodes, edges, hops, fromId, toId, options.mode]);
 
-  // cheap live updates: filtering + label budget only need a refresh
+  // cheap live updates: filtering + label mode only need a re-pick and a refresh
   useEffect(() => {
     viewStateRef.current.minWeight = options.minWeight;
-    viewStateRef.current.labelBudget = options.labelBudget;
-    sigmaRef.current?.refresh();
-  }, [options.minWeight, options.labelBudget]);
+    viewStateRef.current.labels = options.labels;
+    if (applyLabelsRef.current) applyLabelsRef.current();
+    else sigmaRef.current?.refresh();
+  }, [options.minWeight, options.labels]);
+
+  // theme change: recolour the existing graph in place (no rebuild, so the
+  // layout and camera are untouched)
+  useEffect(() => {
+    const sigma = sigmaRef.current;
+    const graph = graphRef.current;
+    const data = dataRef.current;
+    if (!sigma || !graph || !data) return;
+    const palette = getColors(theme);
+    setActivePalette(palette);
+    recolorGraph(graph, data.nodes, data.extras, palette);
+    sigma.setSetting("labelColor", { color: palette.labelText });
+    sigma.refresh();
+  }, [theme]);
 
   // a new query is starting: drift outward while the map fades in above us
   useEffect(() => {
@@ -270,7 +374,7 @@ export function GraphCanvas({
       <button
         className="export-btn"
         title="Export the current view as SVG"
-        onClick={() => sigmaRef.current && downloadSvg(sigmaRef.current, exportContext)}
+        onClick={() => sigmaRef.current && downloadSvg(sigmaRef.current, exportContext, theme)}
       >
         ⤓ SVG
       </button>

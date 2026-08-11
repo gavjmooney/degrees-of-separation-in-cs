@@ -2,6 +2,7 @@ import type {
   AuthorDetail,
   AuthorSummary,
   Coauthor,
+  LeaderboardRecord,
   MapMeta,
   Meta,
   Paper,
@@ -23,6 +24,26 @@ async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** POST JSON, surfacing the server's own `error` message when it sends one. */
+async function post<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `${url}: ${res.status}`;
+    try {
+      const payload = (await res.json()) as { error?: string };
+      if (payload?.error) message = payload.error;
+    } catch {
+      // non-JSON error body: keep the status-based message
+    }
+    throw new ApiError(message, res.status);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const api = {
   search: (q: string, signal?: AbortSignal) =>
     get<AuthorSummary[]>(`/api/search?q=${encodeURIComponent(q)}&limit=10`, signal),
@@ -40,6 +61,22 @@ export const api = {
   edge: (u: number, v: number) =>
     get<{ papers: Paper[] }>(`/api/edge?u=${u}&v=${v}&limit=50`),
   meta: () => get<Meta>("/api/meta"),
+  /** null when the deployment runs with the leaderboard switched off */
+  records: async (limit = 100): Promise<{ records: LeaderboardRecord[]; total: number } | null> => {
+    try {
+      return await get<{ records: LeaderboardRecord[]; total: number }>(`/api/records?limit=${limit}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  },
+  /** Publish a find. The server recomputes the hop count; we only send the pair. */
+  submitRecord: (from: number, to: number, by: string) =>
+    post<{ record: LeaderboardRecord; alreadyListed: boolean }>("/api/records", {
+      from,
+      to,
+      ...(by.trim() ? { by: by.trim() } : {}),
+    }),
   mapMeta: async (): Promise<MapMeta | null> => {
     try {
       return await get<MapMeta>("/api/map/meta");
